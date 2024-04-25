@@ -11,47 +11,13 @@ class CapsuleListScreen extends StatefulWidget {
 }
 
 class _CapsuleListScreenState extends State<CapsuleListScreen> {
-  late final Box<TimeCapsule> _capsuleBox;
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialize the box asynchronously
-    _openBox();
-  }
+  // Remove the late initializer for _capsuleBox
+  Box<TimeCapsule>? _capsuleBox;
 
-  Future<void> _openBox() async {
-    // Open the box and store the reference in the state variable
-    _capsuleBox = await Hive.openBox<TimeCapsule>('capsuleBox');
-  }
-
-  void deleteCapsule(int index) {
-    // Delete a capsule from the Hive box
-    _capsuleBox.deleteAt(index);
-  }
-
-  void archiveCapsule(int index) {
-    // Get the capsule from the box
-    TimeCapsule? capsule = _capsuleBox.getAt(index);
-
-    if (capsule != null) {
-      // Toggle the isArchived status
-      capsule.isArchived = !capsule.isArchived;
-
-      // Save the updated capsule back to the box
-      capsule.save(); // This updates the capsule in the Hive box
-
-      // Optionally, refresh the UI or navigate away
-      setState(() {});
-
-      // Provide user feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(capsule.isArchived
-                ? 'Capsule archived'
-                : 'Capsule unarchived')),
-      );
-    }
+  // Modify the _openBox method to return a Future<Box<TimeCapsule>>
+  Future<Box<TimeCapsule>> _openBox() async {
+    return Hive.openBox<TimeCapsule>('capsuleBox');
   }
 
   @override
@@ -63,29 +29,43 @@ class _CapsuleListScreenState extends State<CapsuleListScreen> {
             IconButton(
               icon: Icon(Icons.search),
               onPressed: () {
-                showSearch(
-                    context: context, delegate: CapsuleSearch(_capsuleBox));
+                if (_capsuleBox != null) {
+                  showSearch(context: context, delegate: CapsuleSearch(_capsuleBox!));
+                }
               },
             ),
           ],
         ),
-        // Use a ValueListenableBuilder to listen to changes in the box
-        body: ValueListenableBuilder(
-          valueListenable: _capsuleBox.listenable(),
-          builder: (context, Box<TimeCapsule> box, _) {
-            List<TimeCapsule> capsules = box.values.toList();
-            // Now build your UI with the list of capsules
-            return ListView.builder(
-              itemCount: capsules.length,
-              itemBuilder: (BuildContext context, int index) {
-                final capsule = capsules[index];
-                return _buildCapsuleItem(context, index, capsule);
-              },
-            );
+        body: FutureBuilder(
+          future: _openBox(),
+          builder: (context, AsyncSnapshot<Box<TimeCapsule>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error opening the capsule box.'));
+            } else {
+              _capsuleBox = snapshot.data; // Now the _capsuleBox is assigned
+              return ValueListenableBuilder(
+                valueListenable: _capsuleBox!.listenable(),
+                builder: (context, Box<TimeCapsule> box, _) {
+                  List<TimeCapsule> capsules = box.values.toList();
+                  // Now build your UI with the list of capsules
+                  return ListView.builder(
+                    itemCount: capsules.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final capsule = capsules[index];
+                      return _buildCapsuleItem(context, index, capsule);
+                    },
+                  );
+                },
+              );
+            }
           },
-        ));
+        ),
+    );
   }
 }
+
 
 Widget _buildCapsuleItem(BuildContext context, int index, TimeCapsule capsule) {
   return Slidable(
@@ -116,6 +96,12 @@ Widget _buildCapsuleItem(BuildContext context, int index, TimeCapsule capsule) {
   );
 }
 
+deleteCapsule(int index) {
+}
+
+archiveCapsule(int index) {
+}
+
 // Search delegate to enable search functionality
 class CapsuleSearch extends SearchDelegate<TimeCapsule> {
   final Box<TimeCapsule> capsuleBox;
@@ -141,7 +127,7 @@ class CapsuleSearch extends SearchDelegate<TimeCapsule> {
     return IconButton(
       icon: Icon(Icons.arrow_back),
       onPressed: () {
-        close(context, null);
+        close(context, TimeCapsule(title: '', message: '', description: '', unlockDate: DateTime.now()));
       },
     );
   }
