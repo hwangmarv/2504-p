@@ -2,6 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:hive/hive.dart';
 import 'data/time_capsule.dart'; 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+Future<void> fetchWeather(String date, String location) async {
+  var response = await http.get(Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$location&date=$date&appid=17377a4e3159299707015c4a0e62f494'));
+
+  if (response.statusCode == 200) {
+    var data = jsonDecode(response.body);
+    // Process and use the weather data
+    print(data);
+  } else {
+    // Handle errors
+    throw Exception('Failed to load weather data');
+  }
+}
 
 class CreateCapsuleScreen extends StatefulWidget {
   @override
